@@ -26,7 +26,7 @@ export type GatewayCall = {
 
 export type SearchCall = { query: string; latencyMs: number; results: number };
 
-export type Source = { title: string; url: string; snippet: string; published?: string };
+export type Source = { title: string; url: string; snippet: string; published?: string; recent?: boolean };
 
 export type Claim = {
   id: number;
@@ -106,14 +106,20 @@ function parseJson<T>(raw: string): T {
 
 // ---------- Tavily ----------
 
-async function search(query: string, log: SearchCall[]): Promise<Source[]> {
+async function tavily(query: string, log: SearchCall[], timeRange?: "year"): Promise<Source[]> {
   const key = process.env.TAVILY_API_KEY;
   if (!key) throw new Error("TAVILY_API_KEY is not set");
   const t0 = Date.now();
   const res = await fetch("https://api.tavily.com/search", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ query, search_depth: "advanced", max_results: 5, include_answer: false }),
+    body: JSON.stringify({
+      query,
+      search_depth: "advanced",
+      max_results: 5,
+      include_answer: false,
+      ...(timeRange ? { time_range: timeRange } : {}),
+    }),
   });
   if (!res.ok) throw new Error(`Tavily failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
@@ -122,9 +128,19 @@ async function search(query: string, log: SearchCall[]): Promise<Source[]> {
     url: r.url,
     snippet: (r.content ?? "").slice(0, 600),
     published: r.published_date || undefined,
+    recent: Boolean(timeRange),
   }));
-  log.push({ query, latencyMs: Date.now() - t0, results: results.length });
+  log.push({ query: timeRange ? `${query} [past year]` : query, latencyMs: Date.now() - t0, results: results.length });
   return results;
+}
+
+// Past-year results first, so "what is true now" comes from fresh pages; widen only if too few.
+async function search(query: string, log: SearchCall[]): Promise<Source[]> {
+  const recent = await tavily(query, log, "year");
+  if (recent.length >= 3) return recent;
+  const seen = new Set(recent.map((s) => s.url));
+  const older = (await tavily(query, log)).filter((s) => !seen.has(s.url));
+  return [...recent, ...older].slice(0, 6);
 }
 
 // ---------- Steps ----------
@@ -166,7 +182,7 @@ Skip opinions and instructions. "quote" must match the answer text exactly; keep
 async function verifyClaim(claim: Claim, today: string, gw: GatewayCall[], sl: SearchCall[]): Promise<Claim> {
   const sources = await search(claim.query || claim.text, sl);
   const evidence = sources
-    .map((s, i) => `[${i + 1}] ${s.title} (${s.published ?? "date unknown"}) ${s.url}\n${s.snippet}`)
+    .map((s, i) => `[${i + 1}]${s.recent ? " [past year]" : ""} ${s.title} (${s.published ?? "date unknown"}) ${s.url}\n${s.snippet}`)
     .join("\n\n");
 
   const raw = await llm(
@@ -176,7 +192,8 @@ async function verifyClaim(claim: Claim, today: string, gw: GatewayCall[], sl: S
 Return ONLY JSON: {"verdict":"current|outdated|contradicted|unverifiable","confidence":0.0-1.0,"current_fact":"what is true now, one sentence","evidence_date":"YYYY-MM-DD of newest relevant source or null","citations":[source numbers],"reasoning":"one sentence"}
 current = evidence shows it is still true. outdated = it was true once but has changed. contradicted = it was never true.
 unverifiable = evidence does not settle it. Never use outside knowledge to override the evidence.
-current_fact must state the up-to-date fact positively taken from the evidence (e.g. "<new person> is now CEO of <company>"), never just "X is no longer Y". If the evidence does not name the replacement, say so.`,
+current_fact must state the up-to-date fact positively taken from the evidence (e.g. "<new person> is now CEO of <company>"), never just "X is no longer Y". If the evidence does not name the replacement, say so.
+Base current_fact on sources marked [past year]; older pages may describe a state that has since changed again. If only older sources name the replacement, say the current holder is not confirmed by recent sources.`,
     `Claim: ${claim.text}\n\nEvidence:\n${evidence || "(no results)"}`,
     gw,
   );
