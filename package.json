@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node scripts/score.test.ts",
+    "eval": "node scripts/eval.mjs",
+    "bifrost": "npx -y @maximhq/bifrost"
   },
   "dependencies": {
     "react": "19.1.0",

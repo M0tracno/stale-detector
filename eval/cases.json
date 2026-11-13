@@ -1,0 +1,18 @@
+[
+  { "answer": "The CEO of Twitter is Parag Agrawal.", "expected": "stale" },
+  { "answer": "Jeff Bezos is the current CEO of Amazon.", "expected": "stale" },
+  { "answer": "The Prime Minister of the United Kingdom is Rishi Sunak.", "expected": "stale" },
+  { "answer": "The latest stable release of Python is Python 3.9.", "expected": "stale" },
+  { "answer": "Node.js 16 is the current Active LTS release.", "expected": "stale" },
+  { "answer": "The latest major version of React is React 17.", "expected": "stale" },
+  { "answer": "The newest iPhone model is the iPhone 13.", "expected": "stale" },
+  { "answer": "The latest Ubuntu LTS release is Ubuntu 20.04.", "expected": "stale" },
+  { "answer": "GPT-4 is OpenAI's most advanced model.", "expected": "stale" },
+  { "answer": "Create React App is the officially recommended way to start a new React project.", "expected": "stale" },
+  { "answer": "Satya Nadella is the CEO of Microsoft.", "expected": "current" },
+  { "answer": "Jensen Huang is the CEO of Nvidia.", "expected": "current" },
+  { "answer": "Sundar Pichai is the CEO of Alphabet.", "expected": "current" },
+  { "answer": "Python 3 is the current major version of Python.", "expected": "current" },
+  { "answer": "Keir Starmer is the leader of the UK Labour Party.", "expected": "current" },
+  { "answer": "The Eiffel Tower is located in Paris.", "expected": "current" }
+]

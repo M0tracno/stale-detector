@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stale-Answer Detector
 
-## Getting Started
+**Problem Statement 06 (Tavily): AI-powered fact verification and information freshness**
 
-First, run the development server:
+LLMs state outdated facts with full confidence: old prices, deprecated API versions, former CEOs. Paste any AI-generated answer and this tool:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1. **Finds the claims.** It splits the answer into atomic factual claims and flags the time-sensitive ones (pricing, API versions, leadership, laws, stats).
+2. **Checks them live.** It runs a Tavily search for the current state of each flagged claim.
+3. **Spots what's out of date.** A stronger model, using only the live evidence, labels each claim `current`, `outdated`, `contradicted` or `unverifiable`.
+4. **Scores freshness.** Each claim gets a score from 0 to 100, based on the verdict, the confidence, how fast that category goes stale, and how recent the newest evidence is.
+5. **Fixes the answer.** It rewrites the answer with corrected facts and keeps source links on every claim.
+
+## How Tavily and Bifrost are used
+
+| Technology | Role |
+|---|---|
+| **Tavily** | Live web search for every flagged claim (`search_depth: advanced`). It returns the sources, snippets and published dates the verdict rests on. |
+| **Bifrost by Maxim AI** | Gateway for **every** LLM call. It routes a cheap model for extraction and rewriting and a strong model for verification, and adds automatic provider fallback (`FALLBACK_MODELS`), virtual-key budgets and per-request observability. The UI shows each gateway call's route, latency and token use. |
+
+```
+answer ─► [Bifrost: fast model] extract claims
+              │  time-sensitive only
+              ▼
+         [Tavily] live search per claim  (parallel)
+              ▼
+         [Bifrost: strong model] verdict + current fact + citations
+              ▼
+         freshness score (lib/score.ts) ─► [Bifrost: fast model] corrected answer
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Freshness score
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Logic lives in `lib/score.ts`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- The verdict sets the target: current ≈ 95, outdated ≈ 10, contradicted ≈ 5, unverifiable 50. Confidence pulls the score away from a neutral 50.
+- Each category has a half-life: pricing 90 days, API versions 120, leadership 1 year, events 3 years, evergreen never.
+- An unverifiable claim in a fast-changing category loses more points.
+- A "current" verdict backed only by evidence older than the half-life is capped below "fresh".
+- Status bands: **fresh** ≥ 70, **check** 40–69, **stale** < 40. The overall score blends the mean with the worst claim, so one stale fact drags the whole answer down.
 
-## Learn More
+## Run it
 
-To learn more about Next.js, take a look at the following resources:
+You need two free keys, and neither asks for a card:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Tavily:** sign up at [app.tavily.com](https://app.tavily.com) (1,000 searches a month free).
+- **An LLM provider for Bifrost:** [Groq](https://console.groq.com/keys) is the default, or use [Gemini](https://aistudio.google.com/apikey).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+# 1. Start Bifrost, then add your Groq (or Gemini/OpenAI) key under Providers in its UI at http://localhost:8080
+npx -y @maximhq/bifrost
 
-## Deploy on Vercel
+# 2. Configure the app
+cp .env.example .env.local   # fill in TAVILY_API_KEY, set FAST_MODEL / STRONG_MODEL to models you enabled
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# 3. Run the app
+npm install
+npm run dev                  # http://localhost:3000
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tests and eval
+
+```bash
+npm test            # scoring logic self-check
+npm run eval        # runs eval/cases.json against the running app and writes eval/results.json
+```
+
+`eval/cases.json` holds labelled answers: known-outdated facts and still-true facts. The eval reports accuracy, precision and recall for stale detection.
+
+## API
+
+`POST /api/check` with body `{ "answer": "..." }` returns `{ overall, claims[], corrected, gateway[], searches[] }`.
