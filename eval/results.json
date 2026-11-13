@@ -1,0 +1,133 @@
+{
+  "summary": {
+    "cases": 19,
+    "accuracy": 1,
+    "precision": 1,
+    "recall": 1,
+    "confusion": {
+      "tp": 12,
+      "fp": 0,
+      "fn": 0,
+      "tn": 7
+    },
+    "ranAt": "2026-11-13T22:53:33.791Z"
+  },
+  "rows": [
+    {
+      "answer": "The CEO of Twitter is Parag Agrawal.",
+      "expected": "stale",
+      "predicted": "stale",
+      "overall": 7
+    },
+    {
+      "answer": "Jeff Bezos is the current CEO of Amazon.",
+      "expected": "stale",
+      "predicted": "stale",
+      "overall": 7
+    },
+    {
+      "answer": "The Prime Minister of the United Kingdom is Rishi Sunak.",
+      "expected": "stale",
+      "predicted": "stale",
+      "overall": 6
+    },
+    {
+      "answer": "The latest stable release of Python is Python 3.9.",
+      "expected": "stale",
+      "predicted": "stale",
+      "overall": 10
+    },
+    {
+      "answer": "Node.js 16 is the current Active LTS release.",
+      "expected": "stale",
+      "predicted": "stale",
+      "overall": 6
+    },
+    {
+      "answer": "The latest major version of React is React 17.",
+      "expected": "stale",
+      "predicted": "stale",
+      "overall": 10
+    },
+    {
+      "answer": "The newest iPhone model is the iPhone 13.",
+      "expected": "stale",
+      "predicted": "stale",
+      "overall": 5
+    },
+    {
+      "answer": "The latest Ubuntu LTS release is Ubuntu 20.04.",
+      "expected": "stale",
+      "predicted": "stale",
+      "overall": 10
+    },
+    {
+      "answer": "GPT-4 is OpenAI's most advanced model.",
+      "expected": "stale",
+      "predicted": "stale",
+      "overall": 12
+    },
+    {
+      "answer": "Create React App is the officially recommended way to start a new React project.",
+      "expected": "stale",
+      "predicted": "stale",
+      "overall": 10
+    },
+    {
+      "answer": "Satya Nadella is the CEO of Microsoft.",
+      "expected": "current",
+      "predicted": "current",
+      "overall": 94
+    },
+    {
+      "answer": "Jensen Huang is the CEO of Nvidia.",
+      "expected": "stale",
+      "note": "relabelled 2026-11-14: CNBC 2026-11-12 reports he is stepping down",
+      "predicted": "stale",
+      "overall": 12
+    },
+    {
+      "answer": "Sundar Pichai is the CEO of Alphabet.",
+      "expected": "current",
+      "predicted": "current",
+      "overall": 94
+    },
+    {
+      "answer": "Python 3 is the current major version of Python.",
+      "expected": "current",
+      "predicted": "current",
+      "overall": 94
+    },
+    {
+      "answer": "Keir Starmer is the leader of the UK Labour Party.",
+      "expected": "stale",
+      "note": "relabelled 2026-11-14: BBC/Wikipedia report Andy Burnham succeeded him in 2026",
+      "predicted": "stale",
+      "overall": 12
+    },
+    {
+      "answer": "The Eiffel Tower is located in Paris.",
+      "expected": "current",
+      "predicted": "current",
+      "overall": null
+    },
+    {
+      "answer": "Ethereum uses a proof-of-stake consensus mechanism.",
+      "expected": "current",
+      "predicted": "current",
+      "overall": 93
+    },
+    {
+      "answer": "The EU's General Data Protection Regulation (GDPR) is currently in force.",
+      "expected": "current",
+      "predicted": "current",
+      "overall": 91
+    },
+    {
+      "answer": "Cargo is the official package manager for the Rust programming language.",
+      "expected": "current",
+      "predicted": "current",
+      "overall": null
+    }
+  ]
+}

@@ -8,7 +8,7 @@
     "start": "next start",
     "test": "node scripts/score.test.ts",
     "eval": "node scripts/eval.mjs",
-    "bifrost": "npx -y @maximhq/bifrost"
+    "bifrost": "npx -y @maximhq/bifrost -app-dir ./bifrost -port 8080"
   },
   "dependencies": {
     "react": "19.1.0",

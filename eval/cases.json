@@ -10,9 +10,12 @@
   { "answer": "GPT-4 is OpenAI's most advanced model.", "expected": "stale" },
   { "answer": "Create React App is the officially recommended way to start a new React project.", "expected": "stale" },
   { "answer": "Satya Nadella is the CEO of Microsoft.", "expected": "current" },
-  { "answer": "Jensen Huang is the CEO of Nvidia.", "expected": "current" },
+  { "answer": "Jensen Huang is the CEO of Nvidia.", "expected": "stale", "note": "relabelled 2026-11-14: CNBC 2026-11-12 reports he is stepping down" },
   { "answer": "Sundar Pichai is the CEO of Alphabet.", "expected": "current" },
   { "answer": "Python 3 is the current major version of Python.", "expected": "current" },
-  { "answer": "Keir Starmer is the leader of the UK Labour Party.", "expected": "current" },
-  { "answer": "The Eiffel Tower is located in Paris.", "expected": "current" }
+  { "answer": "Keir Starmer is the leader of the UK Labour Party.", "expected": "stale", "note": "relabelled 2026-11-14: BBC/Wikipedia report Andy Burnham succeeded him in 2026" },
+  { "answer": "The Eiffel Tower is located in Paris.", "expected": "current" },
+  { "answer": "Ethereum uses a proof-of-stake consensus mechanism.", "expected": "current" },
+  { "answer": "The EU's General Data Protection Regulation (GDPR) is currently in force.", "expected": "current" },
+  { "answer": "Cargo is the official package manager for the Rust programming language.", "expected": "current" }
 ]

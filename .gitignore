@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# bifrost local state
+bifrost/*
+!bifrost/config.json
+*.db
+*.db-shm
+*.db-wal

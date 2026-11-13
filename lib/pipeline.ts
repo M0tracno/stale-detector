@@ -10,8 +10,8 @@ import {
 } from "./score";
 
 const BIFROST_URL = process.env.BIFROST_URL ?? "http://localhost:8080";
-const FAST_MODEL = process.env.FAST_MODEL || "groq/llama-3.1-8b-instant";
-const STRONG_MODEL = process.env.STRONG_MODEL || "groq/llama-3.3-70b-versatile";
+const FAST_MODEL = process.env.FAST_MODEL || "groq/openai/gpt-oss-20b";
+const STRONG_MODEL = process.env.STRONG_MODEL || "groq/openai/gpt-oss-120b";
 const FALLBACK_MODELS = (process.env.FALLBACK_MODELS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const MAX_CLAIMS = 10;
 
@@ -61,22 +61,28 @@ async function llm(step: string, model: string, system: string, user: string, lo
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (process.env.BIFROST_VIRTUAL_KEY) headers["x-bf-vk"] = process.env.BIFROST_VIRTUAL_KEY;
 
-  const res = await fetch(`${BIFROST_URL}/v1/chat/completions`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model,
-      temperature: 0,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      // Bifrost retries these provider/models automatically if the primary fails
-      ...(FALLBACK_MODELS.length ? { fallbacks: FALLBACK_MODELS } : {}),
-    }),
-  }).catch((e) => {
-    throw new Error(`Cannot reach Bifrost at ${BIFROST_URL} (${e.message}). Start it with: npx -y @maximhq/bifrost`);
+  // Bifrost retries these provider/models automatically if the primary fails (e.g. rate limit)
+  const fallbacks = FALLBACK_MODELS.filter((m) => m !== model);
+  const body = JSON.stringify({
+    model,
+    temperature: 0,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    ...(fallbacks.length ? { fallbacks } : {}),
   });
+
+  let res: Response;
+  for (let attempt = 0; ; attempt++) {
+    res = await fetch(`${BIFROST_URL}/v1/chat/completions`, { method: "POST", headers, body }).catch((e) => {
+      throw new Error(`Cannot reach Bifrost at ${BIFROST_URL} (${e.message}). Start it with: npm run bifrost`);
+    });
+    // ponytail: fixed backoff on 429 only; per-model token budgeting if free-tier limits keep biting
+    if (res.status !== 429 || attempt >= 3) break;
+    const wait = Number(res.headers.get("retry-after")) * 1000 || 2000 * 2 ** attempt;
+    await new Promise((r) => setTimeout(r, Math.min(wait, 15000)));
+  }
   if (!res.ok) throw new Error(`Bifrost ${step} failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
 
@@ -128,12 +134,14 @@ const CATEGORY_LIST = [
   "law_regulation", "statistic", "event", "evergreen",
 ];
 
+const RECENCY_WORDS = /\b(latest|current(ly)?|newest|most recent|most advanced|now|today|recommended)\b/i;
+
 async function extractClaims(answer: string, today: string, log: GatewayCall[]): Promise<Claim[]> {
   const raw = await llm(
     "extract",
     FAST_MODEL,
     `You split an AI-generated answer into atomic factual claims. Today is ${today}.
-Return ONLY JSON: {"claims":[{"text":"standalone claim","quote":"exact substring copied verbatim from the answer","category":"${CATEGORY_LIST.join(" | ")}","time_sensitive":true|false,"query":"web search query that would confirm the claim's CURRENT status"}]}
+Return ONLY JSON: {"claims":[{"text":"standalone claim","quote":"exact substring copied verbatim from the answer","category":"${CATEGORY_LIST.join(" | ")}","time_sensitive":true|false,"query":"neutral web search query asking for the CURRENT value, e.g. 'current CEO of Amazon ${today.slice(0, 4)}'. Do NOT include the claimed value itself (no names/versions/prices from the claim), so results are not biased toward old pages"}]}
 time_sensitive = the fact could have changed since it was written (prices, versions, who holds a role, laws, rankings, stats, "latest X").
 Skip opinions and instructions. "quote" must match the answer text exactly; keep it short (the key phrase).`,
     answer,
@@ -142,12 +150,14 @@ Skip opinions and instructions. "quote" must match the answer text exactly; keep
   const parsed = parseJson<{ claims: Array<Record<string, unknown>> }>(raw);
   return (parsed.claims ?? []).map((c, i) => {
     const category = (CATEGORY_LIST.includes(String(c.category)) ? c.category : "statistic") as Category;
+    const text = String(c.text ?? "");
     return {
       id: i + 1,
-      text: String(c.text ?? ""),
+      text,
       quote: String(c.quote ?? ""),
       category,
-      timeSensitive: Boolean(c.time_sensitive) && category !== "evergreen",
+      // "latest / current / newest" claims are time-sensitive by definition, whatever the model says
+      timeSensitive: RECENCY_WORDS.test(text) || (Boolean(c.time_sensitive) && category !== "evergreen"),
       query: c.query ? String(c.query) : undefined,
     };
   });
@@ -165,7 +175,8 @@ async function verifyClaim(claim: Claim, today: string, gw: GatewayCall[], sl: S
     `You fact-check whether a claim is STILL TRUE today (${today}) using only the live search evidence given.
 Return ONLY JSON: {"verdict":"current|outdated|contradicted|unverifiable","confidence":0.0-1.0,"current_fact":"what is true now, one sentence","evidence_date":"YYYY-MM-DD of newest relevant source or null","citations":[source numbers],"reasoning":"one sentence"}
 current = evidence shows it is still true. outdated = it was true once but has changed. contradicted = it was never true.
-unverifiable = evidence does not settle it. Never use outside knowledge to override the evidence.`,
+unverifiable = evidence does not settle it. Never use outside knowledge to override the evidence.
+current_fact must state the up-to-date fact positively taken from the evidence (e.g. "<new person> is now CEO of <company>"), never just "X is no longer Y". If the evidence does not name the replacement, say so.`,
     `Claim: ${claim.text}\n\nEvidence:\n${evidence || "(no results)"}`,
     gw,
   );

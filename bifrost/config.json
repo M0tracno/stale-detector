@@ -1,0 +1,25 @@
+{
+  "$schema": "https://www.getbifrost.ai/schema",
+  "client": {
+    "drop_excess_requests": false,
+    "enable_logging": true,
+    "enforce_auth_on_inference": false
+  },
+  "providers": {
+    "groq": {
+      "keys": [
+        { "name": "groq-main", "value": "env.GROQ_API_KEY", "models": ["*"], "weight": 1.0 }
+      ]
+    }
+  },
+  "config_store": {
+    "enabled": true,
+    "type": "sqlite",
+    "config": { "path": "./bifrost/config.db" }
+  },
+  "logs_store": {
+    "enabled": true,
+    "type": "sqlite",
+    "config": { "path": "./bifrost/logs.db" }
+  }
+}

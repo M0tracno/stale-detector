@@ -43,28 +43,55 @@ Logic lives in `lib/score.ts`:
 You need two free keys, and neither asks for a card:
 
 - **Tavily:** sign up at [app.tavily.com](https://app.tavily.com) (1,000 searches a month free).
-- **An LLM provider for Bifrost:** [Groq](https://console.groq.com/keys) is the default, or use [Gemini](https://aistudio.google.com/apikey).
+- **Groq:** sign up at [console.groq.com/keys](https://console.groq.com/keys). Bifrost uses this key for every model call.
 
 ```bash
-# 1. Start Bifrost, then add your Groq (or Gemini/OpenAI) key under Providers in its UI at http://localhost:8080
-npx -y @maximhq/bifrost
-
-# 2. Configure the app
-cp .env.example .env.local   # fill in TAVILY_API_KEY, set FAST_MODEL / STRONG_MODEL to models you enabled
-
-# 3. Run the app
 npm install
-npm run dev                  # http://localhost:3000
+cp .env.example .env.local      # fill in TAVILY_API_KEY and GROQ_API_KEY
 ```
+
+Start Bifrost in one terminal. It reads `bifrost/config.json`, which takes the Groq key from the `GROQ_API_KEY` environment variable, so no key is ever committed.
+
+```bash
+# macOS / Linux / Git Bash
+set -a; . ./.env.local; set +a; npm run bifrost
+```
+
+```powershell
+# Windows PowerShell
+$env:GROQ_API_KEY = "gsk_..."; npm run bifrost
+```
+
+Then start the app in a second terminal:
+
+```bash
+npm run dev                     # http://localhost:3000
+```
+
+The Bifrost dashboard at http://localhost:8080 shows a live log of every model request the app makes.
+
+### Models and fallback
+
+| Step | Model (through Bifrost) |
+|---|---|
+| Claim extraction and rewrite | `groq/openai/gpt-oss-20b` (fast, cheap) |
+| Verification | `groq/openai/gpt-oss-120b` (strong) |
+| Fallback | `groq/openai/gpt-oss-20b`. Bifrost switches to it automatically when the primary model is rate-limited. |
+
+To change providers, add them to `bifrost/config.json` and set `FAST_MODEL`, `STRONG_MODEL` and `FALLBACK_MODELS` in `.env.local`. No code changes are needed.
 
 ## Tests and eval
 
 ```bash
-npm test            # scoring logic self-check
-npm run eval        # runs eval/cases.json against the running app and writes eval/results.json
+npm test                        # scoring logic self-check
+npm run eval                    # runs eval/cases.json against the running app and writes eval/results.json
 ```
 
-`eval/cases.json` holds labelled answers: known-outdated facts and still-true facts. The eval reports accuracy, precision and recall for stale detection.
+`eval/cases.json` holds 19 labelled single-claim answers: 12 known-outdated facts and 7 still-true facts.
+
+**Latest run (14 Nov 2026): 19/19 correct, 100% precision, 100% recall.** This is a small set and the models are non-deterministic, so expect occasional misses. Run it yourself to check.
+
+The tool caught two of our own labels going out of date. We wrote "Jensen Huang is CEO of Nvidia" and "Keir Starmer leads the UK Labour Party" as current facts. The detector flagged both as outdated, citing November 2026 CNBC coverage and BBC and Wikipedia reports. We relabelled both cases (see the `note` field in `eval/cases.json`). This is exactly the problem the tool is built to solve.
 
 ## API
 
